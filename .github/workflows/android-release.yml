@@ -36,11 +36,21 @@ jobs:
     - name: Build Release APK
       run: ./gradlew assembleRelease --no-daemon
 
+    - name: Sign APK
+      uses: r0adkll/sign-android-release@v1
+      id: sign_app
+      with:
+        releaseDirectory: app/build/outputs/apk/release
+        signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+        alias: ${{ secrets.KEY_ALIAS }}
+        keyStorePassword: ${{ secrets.STORE_PASSWORD }}
+        keyPassword: ${{ secrets.KEY_PASSWORD }}
+
     - name: Upload Release APK as Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: app-release-unsigned
-        path: app/build/outputs/apk/release/app-release-unsigned.apk
+        name: app-release
+        path: ${{steps.sign_app.outputs.signedReleaseFile}}
 
     - name: Create GitHub Release
       if: github.event_name == 'push'
@@ -61,4 +71,4 @@ jobs:
           - 🥚 Easter egg especial de *Rickroll* si escaneas el código adecuado...
           
           *Compilación generada automáticamente desde el commit ${{ github.sha }}*
-        files: app/build/outputs/apk/release/app-release-unsigned.apk
+        files: ${{steps.sign_app.outputs.signedReleaseFile}}
