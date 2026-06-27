@@ -37,15 +37,20 @@ jobs:
       run: ./gradlew assembleRelease --no-daemon
 
     - name: Sign APK
-      uses: r0adkll/sign-android-release@v1
       id: sign_app
-      with:
-        releaseDirectory: app/build/outputs/apk/release
-        signingKeyBase64: ${{ secrets.SIGNING_KEY }}
-        alias: ${{ secrets.KEY_ALIAS }}
-        keyStorePassword: ${{ secrets.STORE_PASSWORD }}
-        keyPassword: ${{ secrets.KEY_PASSWORD }}
-        buildToolsVersion: 34.0.0
+      env:
+        SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: |
+        echo "$SIGNING_KEY" | base64 --decode > keystore.jks
+        BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
+        
+        $BUILD_TOOLS/zipalign -v -p 4 app/build/outputs/apk/release/app-release-unsigned.apk app-release-aligned.apk
+        $BUILD_TOOLS/apksigner sign --ks keystore.jks --ks-key-alias "$KEY_ALIAS" --ks-pass pass:"$STORE_PASSWORD" --key-pass pass:"$KEY_PASSWORD" --out app/build/outputs/apk/release/app-release.apk app-release-aligned.apk
+        
+        echo "signedReleaseFile=app/build/outputs/apk/release/app-release.apk" >> $GITHUB_OUTPUT
 
     - name: Upload Release APK as Artifact
       uses: actions/upload-artifact@v4
