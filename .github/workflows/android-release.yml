@@ -1,0 +1,64 @@
+name: Android CI Release Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Get App Version
+      id: get_version
+      run: |
+        VERSION_NAME=$(grep 'versionName =' app/build.gradle.kts | awk -F'"' '{print $2}')
+        echo "version=$VERSION_NAME" >> $GITHUB_OUTPUT
+
+    - name: Build Release APK
+      run: ./gradlew assembleRelease --no-daemon
+
+    - name: Upload Release APK as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release-unsigned
+        path: app/build/outputs/apk/release/app-release-unsigned.apk
+
+    - name: Create GitHub Release
+      if: github.event_name == 'push'
+      uses: softprops/action-gh-release@v2
+      with:
+        name: "QR Minimal ${{ steps.get_version.outputs.version }}"
+        tag_name: "v${{ steps.get_version.outputs.version }}"
+        body: |
+          🚀 **Novedades de la Versión ${{ steps.get_version.outputs.version }}:**
+          - 🎨 Interfaz minimalista fluida y reactiva usando Jetpack Compose y Material Design 3.
+          - 📷 Escaneo ultrarrápido y offline con CameraX + Google ML Kit Barcode Scanning.
+          - 🔗 Funciones inteligentes por tipo de QR:
+            - **Wi-Fi**: Copia tu contraseña y te lleva a los ajustes.
+            - **Contacto (vCard)**: Abre tu agenda con todos los campos pre-rellenados.
+            - **Email, SMS y Teléfono**: Lanzan directamente tus apps nativas.
+            - **Enlaces**: Apertura automática o manual en el navegador.
+          - 🔦 Soporte de linterna integrado directamente en el visor de la cámara.
+          - 🥚 Easter egg especial de *Rickroll* si escaneas el código adecuado...
+          
+          *Compilación generada automáticamente desde el commit ${{ github.sha }}*
+        files: app/build/outputs/apk/release/app-release-unsigned.apk
